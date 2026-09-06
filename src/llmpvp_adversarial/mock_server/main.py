@@ -60,6 +60,8 @@ def challenge(payload: dict, authorization: str | None = Header(default=None)) -
     if opponent_key is None:
         raise HTTPException(status_code=404, detail="Opponent not found")
     opponent = _agents[opponent_key]
+    if opponent["id"] == challenger["id"]:
+        raise HTTPException(status_code=400, detail="You cannot challenge yourself")
 
     if payload.get("game_type", "chess") != "chess":
         raise HTTPException(status_code=400, detail="Mock server only supports chess without the 'go' extra wired in yet")
@@ -107,11 +109,11 @@ def move(game_id: str, payload: dict, authorization: str | None = Header(default
     if game is None:
         raise HTTPException(status_code=404, detail="Game not found")
     if game["status"] != "active":
-        raise HTTPException(status_code=400, detail="Game is already finished")
+        raise HTTPException(status_code=409, detail="Game is already finished")
 
     color = "white" if agent["id"] == game["white"] else "black" if agent["id"] == game["black"] else None
     if color is None or game["current_turn"] != color:
-        raise HTTPException(status_code=400, detail="Not your turn")
+        raise HTTPException(status_code=403, detail="Not your turn")
 
     now = _now()
     stored_ms = game["white_time_ms"] if color == "white" else game["black_time_ms"]
@@ -151,7 +153,11 @@ def resign(game_id: str, authorization: str | None = Header(default=None)) -> di
     game = _games.get(game_id)
     if game is None:
         raise HTTPException(status_code=404, detail="Game not found")
-    color = "white" if agent["id"] == game["white"] else "black"
+    color = "white" if agent["id"] == game["white"] else "black" if agent["id"] == game["black"] else None
+    if color is None:
+        raise HTTPException(status_code=403, detail="You are not a participant in this game")
+    if game["status"] != "active":
+        raise HTTPException(status_code=409, detail="Game is already finished")
     game["status"] = "finished"
     game["result"] = "black" if color == "white" else "white"
     return _public_game_view(game)

@@ -103,3 +103,87 @@ def test_resign_finishes_the_game():
     a_color = "white" if game["white"] == a["id"] else "black"
     expected_winner = "black" if a_color == "white" else "white"
     assert state["result"] == expected_winner
+
+
+def test_resign_by_non_participant_is_forbidden():
+    a = register("ResignParticipantA")
+    b = register("ResignParticipantB")
+    outsider = register("ResignOutsider")
+    game = client.post(
+        "/api/v1/games/challenge",
+        json={"opponent_name": "ResignParticipantB", "game_type": "chess"},
+        headers={"Authorization": f"Bearer {a['api_key']}"},
+    ).json()
+    resp = client.post(
+        f"/api/v1/games/{game['id']}/resign",
+        headers={"Authorization": f"Bearer {outsider['api_key']}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_resign_on_finished_game_is_conflict():
+    a = register("ResignTwiceA")
+    b = register("ResignTwiceB")
+    game = client.post(
+        "/api/v1/games/challenge",
+        json={"opponent_name": "ResignTwiceB", "game_type": "chess"},
+        headers={"Authorization": f"Bearer {a['api_key']}"},
+    ).json()
+    first = client.post(
+        f"/api/v1/games/{game['id']}/resign",
+        headers={"Authorization": f"Bearer {a['api_key']}"},
+    )
+    assert first.status_code == 200
+    second = client.post(
+        f"/api/v1/games/{game['id']}/resign",
+        headers={"Authorization": f"Bearer {b['api_key']}"},
+    )
+    assert second.status_code == 409
+
+
+def test_move_out_of_turn_is_forbidden():
+    a = register("OutOfTurnA")
+    b = register("OutOfTurnB")
+    game = client.post(
+        "/api/v1/games/challenge",
+        json={"opponent_name": "OutOfTurnB", "game_type": "chess"},
+        headers={"Authorization": f"Bearer {a['api_key']}"},
+    ).json()
+    black_key = b["api_key"] if game["black"] == b["id"] else a["api_key"]
+    resp = client.post(
+        f"/api/v1/games/{game['id']}/move",
+        json={"move": "e5"},
+        headers={"Authorization": f"Bearer {black_key}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_move_on_finished_game_is_conflict():
+    a = register("MoveAfterFinishA")
+    b = register("MoveAfterFinishB")
+    game = client.post(
+        "/api/v1/games/challenge",
+        json={"opponent_name": "MoveAfterFinishB", "game_type": "chess"},
+        headers={"Authorization": f"Bearer {a['api_key']}"},
+    ).json()
+    client.post(
+        f"/api/v1/games/{game['id']}/resign",
+        headers={"Authorization": f"Bearer {a['api_key']}"},
+    )
+    white_key = a["api_key"] if game["white"] == a["id"] else b["api_key"]
+    resp = client.post(
+        f"/api/v1/games/{game['id']}/move",
+        json={"move": "e4"},
+        headers={"Authorization": f"Bearer {white_key}"},
+    )
+    assert resp.status_code == 409
+
+
+def test_challenging_yourself_is_rejected():
+    a = register("SelfChallenger")
+    resp = client.post(
+        "/api/v1/games/challenge",
+        json={"opponent_name": "SelfChallenger", "game_type": "chess"},
+        headers={"Authorization": f"Bearer {a['api_key']}"},
+    )
+    assert resp.status_code == 400
