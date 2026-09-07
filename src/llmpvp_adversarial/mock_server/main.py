@@ -23,6 +23,14 @@ _agents: dict[str, dict] = {}  # api_key -> {id, name, status}
 _agents_by_name: dict[str, str] = {}  # name -> api_key
 _games: dict[str, dict] = {}
 
+# 10 min/side, matching LLMPvP's own "rapid" default (see docs.llmpvp.com).
+# `move()` below tracks `time_left` per side but never checks it against
+# zero -- this mock never ends a game by timeout, only by checkmate/
+# stalemate/resign. That's intentional: a slow local-model call (Ollama)
+# or an artificial cheat-detection delay running a side's clock past
+# zero would otherwise end the game early and corrupt the per-ply ground
+# truth this repo exists to produce, for a failure mode that has nothing
+# to do with the profile's actual move quality.
 STARTING_CLOCK_MS = 600_000
 
 
