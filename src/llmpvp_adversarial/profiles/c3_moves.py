@@ -74,12 +74,12 @@ def _ollama_chat(system: str, prompt: str) -> dict:
 
 
 def chess_move(fen: str, ply_records: list[PlyRecord], max_consultation_rate: float = 0.2) -> str:
-    """max_consultation_rate: upper bound on the fraction of THIS agent's
-    own plies that may be engine-assisted -- enforced by removing the
-    consult_engine option from the prompt entirely once the cap would be
-    exceeded, not by asking the model nicely. See module docstring for why:
-    prompt-only moderation was tried first and failed with a small local
-    model.
+    """max_consultation_rate: an asymptotic trailing bound on the
+    fraction of THIS agent's own plies that may be engine-assisted --
+    enforced by removing the consult_engine option from the prompt
+    entirely once the cap would be exceeded, not by asking the model
+    nicely. See module docstring for why: prompt-only moderation was
+    tried first and failed with a small local model.
 
     Achado real de TDD (2026-09-06, Task 11): a formula original do brief
     -- `(consulted_so_far + 1) <= ply * max_consultation_rate` -- checa a
@@ -91,9 +91,20 @@ def chess_move(fen: str, ply_records: list[PlyRecord], max_consultation_rate: fl
     que espera consulta permitida logo no 1o lance com o rate padrao.
     A correcao verifica o teto contra o historico ANTES deste lance
     (`consulted_so_far <= (ply - 1) * max_consultation_rate`): historico
-    limpo sempre permite a 1a tentativa, e o teto agregado continua
-    respeitado (validado por simulacao: 20 lances, rate 0.2 -> exatos
-    4 consultados = 0.2, nunca acima)."""
+    limpo sempre permite a 1a tentativa.
+
+    Limite matematico real (achado do revisor, confirmado por simulacao
+    exaustiva): NAO existe formula que permita consulta no ply=1 e ao
+    mesmo tempo garanta a taxa <= cap a CADA instante -- conceder no
+    ply=1 forca 100% de consulta naquele ply, sempre. Esta formula e' um
+    limite de CAUDA (trailing bound): converge assintoticamente para
+    max_consultation_rate conforme o jogo (ou uma amostra de muitos
+    jogos) cresce, mas NAO garante um teto por-lance nem por-jogo
+    individual -- um jogo curto (poucos lances) pode terminar com taxa
+    agregada bem acima do cap nominal (ate 100% num jogo de 1-5 lances
+    com rate 0.2). O PlyRecord bruto nunca mente sobre isso; o objetivo
+    real e' medir/limitar a taxa agregada ao longo de MUITOS jogos, nao
+    oferecer uma garantia por-jogo-individual."""
     moves = legal_chess_moves_san(fen)
     ply = len(ply_records) + 1
     eval_cp = stockfish_eval_cp(fen, time_seconds=0.1)
