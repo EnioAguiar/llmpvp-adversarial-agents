@@ -80,6 +80,9 @@ def _pachi_send(proc: subprocess.Popen, command: str) -> list[str]:
                 break
             continue
         lines.append(line.strip())
+    if not lines[0].startswith("="):
+        # GTP failure responses start with '?', e.g. "? illegal move".
+        raise RuntimeError(f"pachi GTP error (cmd={command!r}): {lines}")
     return lines
 
 
