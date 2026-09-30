@@ -86,8 +86,12 @@ def game_outcome(board_size: int, komi: float, board_state: str) -> GoOutcome | 
 
 def legal_moves(board_size: int, komi: float, board_state: str) -> list[str]:
     _, state = _reconstruct(board_size, komi, board_state)
-    moves = [state.action_to_string(state.current_player(), a) for a in state.legal_actions()]
-    return [m.split(" ")[-1].lower() for m in moves]
+    moves = []
+    for action in state.legal_actions():
+        label = state.action_to_string(action)
+        coord = label.split(" ", 1)[1]
+        moves.append("pass" if coord == "PASS" else coord.lower())
+    return moves
 
 
 def board_ascii(board_size: int, komi: float, board_state: str) -> str:
@@ -99,19 +103,19 @@ STONE_CHARS = {"X": "b", "O": "w", "+": "."}
 
 
 def board_grid(board_size: int, komi: float, board_state: str) -> str:
-    """Human-readable grid derived from the opaque OpenSpiel board_state.
-    One row per rank, from `board_size` (top) to 1 (bottom) -- same visual
-    order as `str(state)`. Each char: '.' empty, 'b' black, 'w' white."""
-    ascii_board = board_ascii(board_size, komi, board_state)
+    """Human-readable grid derived from the opaque OpenSpiel board_state
+    (pyspiel.State.serialize()). One line per row, from row `board_size`
+    (top) down to 1 (bottom) -- the same visual order as `str(state)`.
+    Each char: '.' empty, 'b' black, 'w' white. Used so a human frontend
+    can read the board without reimplementing OpenSpiel's rules --
+    board_state itself is opaque outside the library."""
+    _, state = _reconstruct(board_size, komi, board_state)
+    lines = str(state).splitlines()
+    board_lines = lines[2 : 2 + board_size]
     rows = []
-    for line in ascii_board.splitlines():
-        stripped = line.strip()
-        if not stripped or not stripped[0].isdigit():
-            continue
-        cells = stripped.split(" ", 1)[1] if " " in stripped else ""
-        row = "".join(STONE_CHARS.get(c, ".") for c in cells if c in STONE_CHARS)
-        if row:
-            rows.append(row)
+    for line in board_lines:
+        stones = line.split(maxsplit=1)[1]
+        rows.append("".join(STONE_CHARS[ch] for ch in stones))
     return "\n".join(rows)
 
 

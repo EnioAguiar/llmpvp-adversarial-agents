@@ -44,10 +44,15 @@ Paths below are relative to `src/llmpvp_adversarial/`.
   dependency on any private LLMPvP module.
 - **`chess_arbiter.py` / `go_arbiter.py` / `clock.py`** — the game rules and clock
   arithmetic the mock server runs on, ported from LLMPvP's backend so a profile is
-  exercised against the same rules the real arena applies. `chess_arbiter.py` is
-  verbatim, `clock.py` differs only in its docstrings, and `go_arbiter.py` adds an
-  optional-import guard (`PYSPIEL_AVAILABLE`, so a chess-only install imports fine)
-  plus reworked `legal_moves`/`board_grid` implementations.
+  exercised against the same rules the real arena applies. The logic is identical to
+  the originals (`chess_arbiter.py` verbatim; `clock.py` and `go_arbiter.py` differ
+  only in having English docstrings), except that `go_arbiter.py` adds an
+  optional-import guard (`PYSPIEL_AVAILABLE` / `_require_pyspiel`, so a chess-only
+  install still imports fine). `scripts/check_port_parity.py` enforces exactly that:
+  run `python scripts/check_port_parity.py /path/to/llmpvpproject` against a checkout
+  of the backend and it compares both sides' ASTs top-level name by name, ignoring
+  docstrings and allowlisting only the pyspiel guard — any other drift fails with a
+  nonzero exit.
 - **`client.py`** (`SimClient`, a thin HTTP wrapper over that wire format) and
   **`runners/run_games.py`** (`play_game`, which plays one game to completion for any
   pair of the profiles `honest`/`careless`/`careful`/`c3` and writes C3's ground truth
